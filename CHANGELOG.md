@@ -7,6 +7,18 @@ and this project adheres to [SemVer](https://semver.org/spec/v2.0.0.html)
 with a `-mh.N` pre-release suffix to disambiguate from any future upstream
 tags.
 
+## [v0.1.0-mh.2] — 2026-04-17
+
+### Fixed
+
+- `ReadBits` no longer panics with an index-out-of-range when the PLC
+  returns a response whose data section is shorter than the requested
+  bit count. Added a length guard that returns `ResponseLengthError`
+  instead. Reachable in practice on misbehaving firmware, packet
+  corruption, or when `SetIgnoreErrorCodes` is configured and the PLC
+  returns an ignored error code with a truncated payload.
+  `ReadBytes` already had this check; `ReadBits` did not.
+
 ## [v0.1.0-mh.1] — 2026-04-17
 
 First MaestroHub release. Fork base: `github.com/xiaotushaoxia/fins`

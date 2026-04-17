@@ -590,6 +590,13 @@ func (c *UDPClient) readBits(ctx context.Context, ma MemoryArea, address uint16,
 		return nil, err
 	}
 
+	// Guard: the wire-level spec says one byte per bit in the response.
+	// A misbehaving PLC (or a configured-ignored end code paired with a
+	// truncated payload) would otherwise panic with an index out of range.
+	if len(r.data) < int(readCount) {
+		return nil, ResponseLengthError{want: int(readCount), got: len(r.data)}
+	}
+
 	result := make([]bool, readCount)
 	for i := 0; i < int(readCount); i++ {
 		result[i] = r.data[i]&0x01 > 0

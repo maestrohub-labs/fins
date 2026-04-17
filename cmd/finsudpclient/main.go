@@ -192,30 +192,30 @@ func string2words(s string) ([]uint16, error) {
 	return bs, nil
 }
 
-func getMemoryArea(mt, dt string) (byte, bool) {
+func getMemoryArea(mt, dt string) (fins.MemoryArea, bool) {
 	switch mt {
 	case "D":
 		if dt == "b" {
-			return fins.MemoryAreaDMBit, true
+			return fins.AreaDMBit, true
 		}
-		return fins.MemoryAreaDMWord, true
+		return fins.AreaDMWord, true
 	case "A":
 		if dt == "b" {
-			return fins.MemoryAreaARBit, true
+			return fins.AreaARBit, true
 		}
-		return fins.MemoryAreaARWord, true
+		return fins.AreaARWord, true
 	case "H":
 		if dt == "b" {
-			return fins.MemoryAreaHRBit, true
+			return fins.AreaHRBit, true
 		}
-		return fins.MemoryAreaHRWord, true
+		return fins.AreaHRWord, true
 	case "W":
 		if dt == "b" {
-			return fins.MemoryAreaWRBit, true
+			return fins.AreaWRBit, true
 		}
-		return fins.MemoryAreaWRWord, true
+		return fins.AreaWRWord, true
 	}
-	return 0, false
+	return fins.MemoryArea{}, false
 }
 
 const (

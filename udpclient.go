@@ -77,8 +77,8 @@ func NewUDPClient(ctx context.Context, localAddr, plcAddr UDPAddress) (*UDPClien
 }
 
 // ReadWords Reads words from the PLC data area
-func (c *UDPClient) ReadWords(ctx context.Context, memoryArea byte, address uint16, readCount uint16) ([]uint16, error) {
-	readBytes, err := c.ReadBytes(ctx, memoryArea, address, readCount)
+func (c *UDPClient) ReadWords(ctx context.Context, ma MemoryArea, address uint16, readCount uint16) ([]uint16, error) {
+	readBytes, err := c.ReadBytes(ctx, ma, address, readCount)
 	if err != nil {
 		return nil, err
 	}
@@ -87,16 +87,16 @@ func (c *UDPClient) ReadWords(ctx context.Context, memoryArea byte, address uint
 
 // ReadBytes Reads bytes from the PLC data area
 // note: readCount is count of uint16, not count of byte, so len(return) is 2*readCount
-func (c *UDPClient) ReadBytes(ctx context.Context, memoryArea byte, address uint16, readCount uint16) ([]byte, error) {
+func (c *UDPClient) ReadBytes(ctx context.Context, ma MemoryArea, address uint16, readCount uint16) ([]byte, error) {
 	return wrapRead(ctx, c, func() ([]byte, error) {
-		return c.readBytes(ctx, memoryArea, address, readCount)
+		return c.readBytes(ctx, ma, address, readCount)
 	})
 }
 
 // ReadString Reads a string from the PLC data area
 // note: readCount is count of uint16, not len of string or count of byte
-func (c *UDPClient) ReadString(ctx context.Context, memoryArea byte, address uint16, readCount uint16) (string, error) {
-	data, err := c.ReadBytes(ctx, memoryArea, address, readCount)
+func (c *UDPClient) ReadString(ctx context.Context, ma MemoryArea, address uint16, readCount uint16) (string, error) {
+	data, err := c.ReadBytes(ctx, ma, address, readCount)
 	if err != nil {
 		return "", err
 	}
@@ -109,9 +109,9 @@ func (c *UDPClient) ReadString(ctx context.Context, memoryArea byte, address uin
 
 // ReadBits Reads bits from the PLC data area
 // note: readCount is count of bool, so len(return) is readCount
-func (c *UDPClient) ReadBits(ctx context.Context, memoryArea byte, address uint16, bitOffset byte, readCount uint16) ([]bool, error) {
+func (c *UDPClient) ReadBits(ctx context.Context, ma MemoryArea, address uint16, bitOffset byte, readCount uint16) ([]bool, error) {
 	return wrapRead(ctx, c, func() ([]bool, error) {
-		return c.readBits(ctx, memoryArea, address, bitOffset, readCount)
+		return c.readBits(ctx, ma, address, bitOffset, readCount)
 	})
 }
 
@@ -127,8 +127,8 @@ func (c *UDPClient) ReadClock(ctx context.Context) (t *time.Time, err error) {
 }
 
 // WriteWords Writes words to the PLC data area
-func (c *UDPClient) WriteWords(ctx context.Context, memoryArea byte, address uint16, data []uint16) error {
-	return c.WriteBytes(ctx, memoryArea, address, c.uint16sToBytes(data))
+func (c *UDPClient) WriteWords(ctx context.Context, ma MemoryArea, address uint16, data []uint16) error {
+	return c.WriteBytes(ctx, ma, address, c.uint16sToBytes(data))
 }
 
 // WriteBytes Writes bytes array to the PLC data area
@@ -142,7 +142,7 @@ func (c *UDPClient) WriteWords(ctx context.Context, memoryArea byte, address uin
 //
 //	if len(b) is not even, I append 0 to the end of b, cause low byte of last memory will be set to 0
 //	 A200=1(0x00 0x01), call WriteBytes(A, 100, []byte{0x01}), A200 will be 256(0x01,0x00)
-func (c *UDPClient) WriteBytes(ctx context.Context, memoryArea byte, address uint16, b []byte) error {
+func (c *UDPClient) WriteBytes(ctx context.Context, ma MemoryArea, address uint16, b []byte) error {
 	if len(b) == 0 {
 		return EmptyWriteRequestError{}
 	}
@@ -150,10 +150,10 @@ func (c *UDPClient) WriteBytes(ctx context.Context, memoryArea byte, address uin
 		b = append(b, 0)
 	}
 	return c.wrapOperate(ctx, func() error {
-		if err := checkIsWordMemoryArea(memoryArea); err != nil {
+		if err := checkIsWordArea(ma); err != nil {
 			return err
 		}
-		command := writeCommand(memAddr(memoryArea, address), uint16(len(b)/2), b)
+		command := writeCommand(memAddr(ma.Code, address), uint16(len(b)/2), b)
 		return c.checkResponse(c.sendCommand(ctx, command))
 	})
 }
@@ -167,8 +167,8 @@ func (c *UDPClient) WriteBytes(ctx context.Context, memoryArea byte, address uin
 // Warning:
 //
 //	same as WriteBytes, if len([]byte(s)) is not even, I append 0 to the end of b, cause low byte of last memory will be set to 0
-func (c *UDPClient) WriteString(ctx context.Context, memoryArea byte, address uint16, s string) error {
-	return c.WriteBytes(ctx, memoryArea, address, []byte(s))
+func (c *UDPClient) WriteString(ctx context.Context, ma MemoryArea, address uint16, s string) error {
+	return c.WriteBytes(ctx, ma, address, []byte(s))
 }
 
 // WriteBits Writes bits to the PLC data area
@@ -176,9 +176,9 @@ func (c *UDPClient) WriteString(ctx context.Context, memoryArea byte, address ui
 //
 //	WriteBits(A, 100, 0, []bool{true,true}) will set A100=256  [00 03]
 //	WriteBits(A, 100, 0, []bool{true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true}) will set A100=65535,A101=1  [FF FF 00 01]
-func (c *UDPClient) WriteBits(ctx context.Context, memoryArea byte, address uint16, bitOffset byte, data []bool) error {
+func (c *UDPClient) WriteBits(ctx context.Context, ma MemoryArea, address uint16, bitOffset byte, data []bool) error {
 	return c.wrapOperate(ctx, func() error {
-		if err := checkIsBitMemoryArea(memoryArea); err != nil {
+		if err := checkIsBitArea(ma); err != nil {
 			return err
 		}
 		l := uint16(len(data))
@@ -190,15 +190,15 @@ func (c *UDPClient) WriteBits(ctx context.Context, memoryArea byte, address uint
 			}
 			bts = append(bts, d)
 		}
-		command := writeCommand(memAddrWithBitOffset(memoryArea, address, bitOffset), l, bts)
+		command := writeCommand(memAddrWithBitOffset(ma.Code, address, bitOffset), l, bts)
 
 		return c.checkResponse(c.sendCommand(ctx, command))
 	})
 }
 
 // SetBit Sets a bit in the PLC data area
-func (c *UDPClient) SetBit(ctx context.Context, memoryArea byte, address uint16, bitOffset byte) error {
-	return c.bitTwiddle(ctx, memoryArea, address, bitOffset, 0x01)
+func (c *UDPClient) SetBit(ctx context.Context, ma MemoryArea, address uint16, bitOffset byte) error {
+	return c.bitTwiddle(ctx, ma, address, bitOffset, 0x01)
 }
 
 // ResetBit Resets a bit in the PLC data area
@@ -206,14 +206,14 @@ func (c *UDPClient) SetBit(ctx context.Context, memoryArea byte, address uint16,
 //
 //	ResetBit(A, 100, 0) will set A100.0=0  [00 01] -> [00 00]
 //	ResetBit(A, 100, 16) will set A101.0=0  [00 00 00 01] -> [00 00 00 00]
-func (c *UDPClient) ResetBit(ctx context.Context, memoryArea byte, address uint16, bitOffset byte) error {
-	return c.bitTwiddle(ctx, memoryArea, address, bitOffset, 0x00)
+func (c *UDPClient) ResetBit(ctx context.Context, ma MemoryArea, address uint16, bitOffset byte) error {
+	return c.bitTwiddle(ctx, ma, address, bitOffset, 0x00)
 }
 
 // ToggleBit Toggles a bit in the PLC data area
-func (c *UDPClient) ToggleBit(ctx context.Context, memoryArea byte, address uint16, bitOffset byte) error {
+func (c *UDPClient) ToggleBit(ctx context.Context, ma MemoryArea, address uint16, bitOffset byte) error {
 	return c.wrapOperate(ctx, func() error {
-		b, err := c.readBits(ctx, memoryArea, address, bitOffset, 1)
+		b, err := c.readBits(ctx, ma, address, bitOffset, 1)
 		if err != nil {
 			return err
 		}
@@ -221,7 +221,7 @@ func (c *UDPClient) ToggleBit(ctx context.Context, memoryArea byte, address uint
 		if b[0] {
 			t = 0x01
 		}
-		return c._bitTwiddle(ctx, memoryArea, address, bitOffset, t)
+		return c._bitTwiddle(ctx, ma, address, bitOffset, t)
 	})
 }
 
@@ -423,26 +423,26 @@ func (c *UDPClient) sendCommandAndCheckResponse(ctx context.Context, command []b
 	return resp, nil
 }
 
-func (c *UDPClient) bitTwiddle(ctx context.Context, memoryArea byte, address uint16, bitOffset byte, value byte) error {
+func (c *UDPClient) bitTwiddle(ctx context.Context, ma MemoryArea, address uint16, bitOffset byte, value byte) error {
 	return c.wrapOperate(ctx, func() error {
-		if err := checkIsBitMemoryArea(memoryArea); err != nil {
+		if err := checkIsBitArea(ma); err != nil {
 			return err
 		}
-		return c._bitTwiddle(ctx, memoryArea, address, bitOffset, value)
+		return c._bitTwiddle(ctx, ma, address, bitOffset, value)
 	})
 }
 
-func (c *UDPClient) _bitTwiddle(ctx context.Context, memoryArea byte, address uint16, bitOffset byte, value byte) error {
-	mem := memoryAddress{memoryArea, address, bitOffset}
+func (c *UDPClient) _bitTwiddle(ctx context.Context, ma MemoryArea, address uint16, bitOffset byte, value byte) error {
+	mem := memoryAddress{ma.Code, address, bitOffset}
 	command := writeCommand(mem, 1, []byte{value})
 	return c.checkResponse(c.sendCommand(ctx, command))
 }
 
-func (c *UDPClient) readBits(ctx context.Context, memoryArea byte, address uint16, bitOffset byte, readCount uint16) ([]bool, error) {
-	if err := checkIsBitMemoryArea(memoryArea); err != nil {
+func (c *UDPClient) readBits(ctx context.Context, ma MemoryArea, address uint16, bitOffset byte, readCount uint16) ([]bool, error) {
+	if err := checkIsBitArea(ma); err != nil {
 		return nil, err
 	}
-	command := readCommand(memAddrWithBitOffset(memoryArea, address, bitOffset), readCount)
+	command := readCommand(memAddrWithBitOffset(ma.Code, address, bitOffset), readCount)
 	r, err := c.sendCommandAndCheckResponse(ctx, command)
 	if err != nil {
 		return nil, err
@@ -454,11 +454,11 @@ func (c *UDPClient) readBits(ctx context.Context, memoryArea byte, address uint1
 	}
 	return result, nil
 }
-func (c *UDPClient) readBytes(ctx context.Context, memoryArea byte, address uint16, readCount uint16) ([]byte, error) {
-	if err := checkIsWordMemoryArea(memoryArea); err != nil {
+func (c *UDPClient) readBytes(ctx context.Context, ma MemoryArea, address uint16, readCount uint16) ([]byte, error) {
+	if err := checkIsWordArea(ma); err != nil {
 		return nil, err
 	}
-	addr := memAddr(memoryArea, address)
+	addr := memAddr(ma.Code, address)
 	command := readCommand(addr, readCount)
 	r, e := c.sendCommandAndCheckResponse(ctx, command)
 	if e != nil {

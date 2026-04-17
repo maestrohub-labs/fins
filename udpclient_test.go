@@ -54,60 +54,60 @@ func test1(t *testing.T, c *UDPClient) {
 	toWrite := []uint16{5, 4, 3, 2, 1}
 
 	// ------------- Test Words
-	err := c.WriteWords(ctx, MemoryAreaDMWord, 100, toWrite)
+	err := c.WriteWords(ctx, AreaDMWord, 100, toWrite)
 	assert.Nil(t, err)
 
-	vals, err := c.ReadWords(ctx, MemoryAreaDMWord, 100, 5)
+	vals, err := c.ReadWords(ctx, AreaDMWord, 100, 5)
 	assert.Nil(t, err)
 	assert.Equal(t, toWrite, vals)
 
 	// test setting response timeout
 	c.SetTimeoutMs(50)
-	_, err = c.ReadWords(ctx, MemoryAreaDMWord, 100, 5)
+	_, err = c.ReadWords(ctx, AreaDMWord, 100, 5)
 	assert.Nil(t, err)
 
 	// ------------- Test Strings
-	err = c.WriteString(ctx, MemoryAreaDMWord, 10, "ф1234")
+	err = c.WriteString(ctx, AreaDMWord, 10, "ф1234")
 	assert.Nil(t, err)
 
-	v, err := c.ReadString(ctx, MemoryAreaDMWord, 12, 1)
+	v, err := c.ReadString(ctx, AreaDMWord, 12, 1)
 	assert.Nil(t, err)
 	assert.Equal(t, "12", v)
 
-	v, err = c.ReadString(ctx, MemoryAreaDMWord, 10, 3)
+	v, err = c.ReadString(ctx, AreaDMWord, 10, 3)
 	assert.Nil(t, err)
 	assert.Equal(t, "ф1234", v)
 
-	v, err = c.ReadString(ctx, MemoryAreaDMWord, 10, 5)
+	v, err = c.ReadString(ctx, AreaDMWord, 10, 5)
 	assert.Nil(t, err)
 	assert.Equal(t, "ф1234", v)
 
 	// ------------- Test Bytes
-	err = c.WriteBytes(ctx, MemoryAreaDMWord, 10, []byte{0x00, 0x00, 0xC1, 0xA0})
+	err = c.WriteBytes(ctx, AreaDMWord, 10, []byte{0x00, 0x00, 0xC1, 0xA0})
 	assert.Nil(t, err)
 
-	b, err := c.ReadBytes(ctx, MemoryAreaDMWord, 10, 2)
+	b, err := c.ReadBytes(ctx, AreaDMWord, 10, 2)
 	assert.Nil(t, err)
 	assert.Equal(t, []byte{0x00, 0x00, 0xC1, 0xA0}, b)
 
 	buf := make([]byte, 8, 8)
 	binary.LittleEndian.PutUint64(buf[:], math.Float64bits(-20))
-	err = c.WriteBytes(ctx, MemoryAreaDMWord, 10, buf)
+	err = c.WriteBytes(ctx, AreaDMWord, 10, buf)
 	assert.Nil(t, err)
 
-	b, err = c.ReadBytes(ctx, MemoryAreaDMWord, 10, 4)
+	b, err = c.ReadBytes(ctx, AreaDMWord, 10, 4)
 	assert.Nil(t, err)
 	assert.Equal(t, []byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x34, 0xc0}, b)
 
 	// ------------- Test Bits
-	err = c.WriteBits(ctx, MemoryAreaDMBit, 10, 2, []bool{true, false, true})
+	err = c.WriteBits(ctx, AreaDMBit, 10, 2, []bool{true, false, true})
 	assert.Nil(t, err)
 
-	bs, err := c.ReadBits(ctx, MemoryAreaDMBit, 10, 2, 3)
+	bs, err := c.ReadBits(ctx, AreaDMBit, 10, 2, 3)
 	assert.Nil(t, err)
 	assert.Equal(t, []bool{true, false, true}, bs)
 
-	bs, err = c.ReadBits(ctx, MemoryAreaDMBit, 10, 1, 5)
+	bs, err = c.ReadBits(ctx, AreaDMBit, 10, 1, 5)
 	assert.Nil(t, err)
 	assert.Equal(t, []bool{false, true, false, true, false}, bs)
 }
@@ -118,7 +118,7 @@ func raceTest(c *UDPClient, testClose bool) {
 		wg.Add(1)
 		go func(ii int) {
 			defer wg.Done()
-			words, err := c.ReadWords(context.Background(), MemoryAreaDMWord, 100, 10)
+			words, err := c.ReadWords(context.Background(), AreaDMWord, 100, 10)
 			if err != nil {
 				fmt.Println(ii, err.Error())
 			} else {
@@ -175,7 +175,7 @@ func TestReadWords_AlreadyCancelledContext(t *testing.T) {
 	cancel()
 
 	start := time.Now()
-	_, err := c.ReadWords(ctx, MemoryAreaDMWord, 0, 1)
+	_, err := c.ReadWords(ctx, AreaDMWord, 0, 1)
 	elapsed := time.Since(start)
 
 	assert.True(t, errors.Is(err, context.Canceled), "expected context.Canceled, got %v", err)
@@ -193,7 +193,7 @@ func TestReadWords_ContextCancellation(t *testing.T) {
 	}()
 
 	start := time.Now()
-	_, err := c.ReadWords(ctx, MemoryAreaDMWord, 0, 1)
+	_, err := c.ReadWords(ctx, AreaDMWord, 0, 1)
 	elapsed := time.Since(start)
 
 	assert.True(t, errors.Is(err, context.Canceled), "expected context.Canceled, got %v", err)
@@ -209,7 +209,7 @@ func TestReadWords_ContextDeadline(t *testing.T) {
 	defer cancel()
 
 	start := time.Now()
-	_, err := c.ReadWords(ctx, MemoryAreaDMWord, 0, 1)
+	_, err := c.ReadWords(ctx, AreaDMWord, 0, 1)
 	elapsed := time.Since(start)
 
 	assert.True(t, errors.Is(err, context.DeadlineExceeded), "expected context.DeadlineExceeded, got %v", err)
@@ -245,7 +245,7 @@ func TestConcurrentContexts(t *testing.T) {
 					panics.Add(1)
 				}
 			}()
-			_, _ = c.ReadWords(ctxs[idx], MemoryAreaDMWord, 0, 1)
+			_, _ = c.ReadWords(ctxs[idx], AreaDMWord, 0, 1)
 		}(i)
 	}
 	// Cancel half at random times between 10–80ms.
@@ -290,19 +290,19 @@ type clientOp struct {
 
 var allPublicOps = []clientOp{
 	{"ReadWords", func(ctx context.Context, c *UDPClient) error {
-		_, err := c.ReadWords(ctx, MemoryAreaDMWord, 0, 1)
+		_, err := c.ReadWords(ctx, AreaDMWord, 0, 1)
 		return err
 	}},
 	{"ReadBytes", func(ctx context.Context, c *UDPClient) error {
-		_, err := c.ReadBytes(ctx, MemoryAreaDMWord, 0, 1)
+		_, err := c.ReadBytes(ctx, AreaDMWord, 0, 1)
 		return err
 	}},
 	{"ReadBits", func(ctx context.Context, c *UDPClient) error {
-		_, err := c.ReadBits(ctx, MemoryAreaDMBit, 0, 0, 1)
+		_, err := c.ReadBits(ctx, AreaDMBit, 0, 0, 1)
 		return err
 	}},
 	{"ReadString", func(ctx context.Context, c *UDPClient) error {
-		_, err := c.ReadString(ctx, MemoryAreaDMWord, 0, 1)
+		_, err := c.ReadString(ctx, AreaDMWord, 0, 1)
 		return err
 	}},
 	{"ReadClock", func(ctx context.Context, c *UDPClient) error {
@@ -310,25 +310,25 @@ var allPublicOps = []clientOp{
 		return err
 	}},
 	{"WriteWords", func(ctx context.Context, c *UDPClient) error {
-		return c.WriteWords(ctx, MemoryAreaDMWord, 0, []uint16{1})
+		return c.WriteWords(ctx, AreaDMWord, 0, []uint16{1})
 	}},
 	{"WriteBytes", func(ctx context.Context, c *UDPClient) error {
-		return c.WriteBytes(ctx, MemoryAreaDMWord, 0, []byte{0, 1})
+		return c.WriteBytes(ctx, AreaDMWord, 0, []byte{0, 1})
 	}},
 	{"WriteString", func(ctx context.Context, c *UDPClient) error {
-		return c.WriteString(ctx, MemoryAreaDMWord, 0, "xy")
+		return c.WriteString(ctx, AreaDMWord, 0, "xy")
 	}},
 	{"WriteBits", func(ctx context.Context, c *UDPClient) error {
-		return c.WriteBits(ctx, MemoryAreaDMBit, 0, 0, []bool{true})
+		return c.WriteBits(ctx, AreaDMBit, 0, 0, []bool{true})
 	}},
 	{"SetBit", func(ctx context.Context, c *UDPClient) error {
-		return c.SetBit(ctx, MemoryAreaDMBit, 0, 0)
+		return c.SetBit(ctx, AreaDMBit, 0, 0)
 	}},
 	{"ResetBit", func(ctx context.Context, c *UDPClient) error {
-		return c.ResetBit(ctx, MemoryAreaDMBit, 0, 0)
+		return c.ResetBit(ctx, AreaDMBit, 0, 0)
 	}},
 	{"ToggleBit", func(ctx context.Context, c *UDPClient) error {
-		return c.ToggleBit(ctx, MemoryAreaDMBit, 0, 0)
+		return c.ToggleBit(ctx, AreaDMBit, 0, 0)
 	}},
 }
 
@@ -418,7 +418,7 @@ func TestNewUDPClient_ParentContextCancellation(t *testing.T) {
 	var readErr error
 	done := make(chan struct{})
 	go func() {
-		_, readErr = c.ReadWords(context.Background(), MemoryAreaDMWord, 0, 1)
+		_, readErr = c.ReadWords(context.Background(), AreaDMWord, 0, 1)
 		close(done)
 	}()
 

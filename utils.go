@@ -7,24 +7,18 @@ import (
 	"time"
 )
 
-func checkIsWordMemoryArea(memoryArea byte) error {
-	if memoryArea == MemoryAreaDMWord ||
-		memoryArea == MemoryAreaARWord ||
-		memoryArea == MemoryAreaHRWord ||
-		memoryArea == MemoryAreaWRWord {
-		return nil
+func checkIsWordArea(ma MemoryArea) error {
+	if ma.Bits {
+		return IncompatibleMemoryAreaError{ma.Code}
 	}
-	return IncompatibleMemoryAreaError{memoryArea}
+	return nil
 }
 
-func checkIsBitMemoryArea(memoryArea byte) error {
-	if memoryArea == MemoryAreaDMBit ||
-		memoryArea == MemoryAreaARBit ||
-		memoryArea == MemoryAreaHRBit ||
-		memoryArea == MemoryAreaWRBit {
-		return nil
+func checkIsBitArea(ma MemoryArea) error {
+	if !ma.Bits {
+		return IncompatibleMemoryAreaError{ma.Code}
 	}
-	return IncompatibleMemoryAreaError{memoryArea}
+	return nil
 }
 
 type atomicByte struct {

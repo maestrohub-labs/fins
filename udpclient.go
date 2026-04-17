@@ -34,6 +34,7 @@ type UDPClient struct {
 
 	sf      singleflightOne // avoid Close call twice
 	closing atomic.Bool
+	closed  atomic.Bool // latched true by Close; never reset
 	wg      sync.WaitGroup
 
 	// parentCtx is the context passed to NewUDPClient. It governs the lifetime
@@ -344,9 +345,15 @@ func (c *UDPClient) SetReadGoroutineNum(count uint8) {
 	}
 }
 
-// Close Closes an Omron FINS connection
-func (c *UDPClient) Close() {
+// Close shuts the Omron FINS client down. In-flight Read*/Write* calls
+// unblock and return ClientClosedError. Subsequent calls on this client
+// also return ClientClosedError — Close is terminal, not a transient
+// disconnect. Close itself is idempotent: safe to call concurrently and
+// repeatedly. Always returns nil today; the error return is reserved
+// for future transport variants.
+func (c *UDPClient) Close() error {
 	c.sf.do(c.wrapClose)
+	return nil
 }
 
 // SetIgnoreErrorCodes
@@ -361,6 +368,9 @@ func (c *UDPClient) SetIgnoreErrorCodes(codes []uint16) {
 
 // ============== private ==============
 func (c *UDPClient) initConnAndStartReadLoop() error {
+	if c.closed.Load() {
+		return ClientClosedError{}
+	}
 	if c.closing.Load() {
 		return ClientClosingError{}
 	}
@@ -577,6 +587,9 @@ func (c *UDPClient) wrapOperate(ctx context.Context, do func() error) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	if c.closed.Load() {
+		return ClientClosedError{}
+	}
 	c.wg.Add(1)
 	defer c.wg.Done()
 	err := c.initConnAndStartReadLoop()
@@ -616,13 +629,17 @@ func (c *UDPClient) closeConn() {
 }
 
 func (c *UDPClient) wrapClose() {
+	// closed is latched before closing so any concurrent wrapRead/wrapOperate
+	// that raced past the initial closed check still observes ClientClosedError
+	// via initConnAndStartReadLoop's own closed check.
+	c.closed.Store(true)
 	c.closing.Store(true)
 	defer c.closing.Store(false)
 	c.closeConn()
 	c.wg.Wait()
-	// if c.wg.Wait() return, means no goroutine use this client
-	// and since c.closing is true,  no new goroutine can use this client
-	// so setConnAndCtx can call without protection of c.m
+	// if c.wg.Wait() returns, no goroutine is using this client any more,
+	// and since c.closed is latched true no new goroutine can use it either —
+	// so setConnAndCtx runs safely without holding c.m.
 	c.setConnAndCtx(nil)
 }
 
@@ -675,6 +692,9 @@ func (c *UDPClient) checkResponse(r *response, err error) error {
 func wrapRead[T any](ctx context.Context, c *UDPClient, do func() (T, error)) (result T, err error) {
 	if err = ctx.Err(); err != nil {
 		return result, err
+	}
+	if c.closed.Load() {
+		return result, ClientClosedError{}
 	}
 	c.wg.Add(1)
 	defer c.wg.Done()

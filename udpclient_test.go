@@ -22,6 +22,7 @@ func TestFinsClient(t *testing.T) {
 
 	c, e := NewUDPClient(context.Background(), clientAddr, plcAddr)
 	assert.Nil(t, e)
+	defer c.Close()
 
 	for i := 0; i < 10; i++ {
 		fmt.Println(i)
@@ -42,7 +43,6 @@ func TestFinsClientRace(t *testing.T) {
 }
 
 func test1(t *testing.T, c *UDPClient) {
-	defer c.Close()
 	ctx := context.Background()
 	s, e := NewUDPServerSimulator(c.plcAddr)
 	assert.Nil(t, e)

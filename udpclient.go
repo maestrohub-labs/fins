@@ -49,6 +49,36 @@ type UDPClient struct {
 	cancel context.CancelFunc
 
 	ignoreErrorCode atomic.Value // map[uint16]struct{}{}
+
+	// lightweight telemetry — see Stats().
+	inFlightRequests atomic.Int64
+	lifetimeRequests atomic.Uint64
+	lifetimeTimeouts atomic.Uint64
+}
+
+// Stats is a snapshot of client-level counters intended for export to
+// a metrics system.
+type Stats struct {
+	// InFlightRequests is the number of outstanding sendCommand calls
+	// at the time Stats() was taken.
+	InFlightRequests int
+	// LifetimeRequests counts every sendCommand invocation since the
+	// client was created (both successful and failed).
+	LifetimeRequests uint64
+	// LifetimeTimeouts counts every sendCommand that returned
+	// ResponseTimeoutError since the client was created.
+	LifetimeTimeouts uint64
+}
+
+// Stats returns a snapshot of the client's lightweight telemetry. Cheap
+// to call — reads three atomic counters. Safe to call concurrently and
+// after Close().
+func (c *UDPClient) Stats() Stats {
+	return Stats{
+		InFlightRequests: int(c.inFlightRequests.Load()),
+		LifetimeRequests: c.lifetimeRequests.Load(),
+		LifetimeTimeouts: c.lifetimeTimeouts.Load(),
+	}
 }
 
 // NewUDPClient creates a new Omron FINS client.
@@ -481,6 +511,10 @@ func (c *UDPClient) sendCommand(ctx context.Context, command []byte) (*response,
 		return nil, ClientClosedError{}
 	}
 
+	c.lifetimeRequests.Add(1)
+	c.inFlightRequests.Add(1)
+	defer c.inFlightRequests.Add(-1)
+
 	sid, reqPacket := c.createRequest(command)
 
 	respCh := make(chan *response)
@@ -509,6 +543,7 @@ func (c *UDPClient) sendCommand(ctx context.Context, command []byte) (*response,
 	case respV := <-respCh:
 		return respV, nil
 	case <-timeoutChan:
+		c.lifetimeTimeouts.Add(1)
 		return nil, ResponseTimeoutError{d} // can not actually happen if d == 0
 	}
 }

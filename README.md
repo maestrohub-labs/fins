@@ -1,18 +1,38 @@
-# FINS
+# fins
 
-This is fins command client written by Go.
+A Go client library for the Omron FINS protocol.
 
-The library support communication to omron PLC from Go application.
+This is a MaestroHub fork of [`github.com/xiaotushaoxia/fins`](https://github.com/xiaotushaoxia/fins)
+(itself derived from `github.com/l1va/gofins`, © 2018 l1va, MIT). See `NOTICE.md`
+for the full attribution chain.
 
-Ideas were taken from https://github.com/hiroeorz/omron-fins-go and https://github.com/patrick--/node-omron-fins and https://github.com/l1va/gofins
+## Status
 
-Library was tested with <b>Omron PLC NJ501-1300</b>. Mean time of the cycle request-response is 4ms.
-Additional work in the siyka-au repository was tested against a <b>CP1L-EM</b>.
+Fork base: upstream `v0.0.2` (commit `dbb9952`).
+In-progress improvements are tracked in the MaestroHub fork task doc; the first
+tagged release will be `v0.1.0-mh.1` once those changes land.
 
-There is simple Omron FINS Server (PLC emulator) in the udpserver.go 
+## Upstream history
 
-Feel free to ask questions, raise issues and make pull requests!
+The original library supports communication with Omron PLCs from Go. It was
+tested against an **Omron PLC NJ501-1300** (~4 ms request-response cycle), and
+separately (via the siyka-au repository) against a **CP1L-EM**. A simple Omron
+FINS server (PLC emulator) is available in `udpserver.go`.
 
-# todo
+Ideas in the original implementation came from
+[`hiroeorz/omron-fins-go`](https://github.com/hiroeorz/omron-fins-go),
+[`patrick--/node-omron-fins`](https://github.com/patrick--/node-omron-fins)
+and [`l1va/gofins`](https://github.com/l1va/gofins).
 
-1. support tcp
+## Remotes
+
+This repo tracks both its fork base and its own history:
+
+```
+origin    git@github.com:maestrohub-labs/fins.git     (MaestroHub fork)
+upstream  https://github.com/xiaotushaoxia/fins.git   (fork base, read-only)
+```
+
+# TODO
+
+1. FINS/TCP transport support (post-V1).

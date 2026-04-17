@@ -92,29 +92,33 @@ func (s *UDPServer) handler(r request) response {
 
 		switch memAddr_.memoryArea {
 		case MemoryAreaDMWord:
-
-			if memAddr_.address+ic*2 > DmAreaSize { // Check address boundary
+			// FINS DM word address is a word index — convert to byte offset.
+			byteAddr := uint32(memAddr_.address) * 2
+			byteLen := uint32(ic) * 2
+			if byteAddr+byteLen > uint32(DmAreaSize) { // Check address boundary
 				endCode = EndCodeAddressRangeExceeded
 				break
 			}
 
 			if r.commandCode == CommandCodeMemoryAreaRead { //Read command
-				data = s.dmarea[memAddr_.address : memAddr_.address+ic*2]
+				data = s.dmarea[byteAddr : byteAddr+byteLen]
 			} else { // Write command
-				copy(s.dmarea[memAddr_.address:memAddr_.address+ic*2], r.data[6:6+ic*2])
+				copy(s.dmarea[byteAddr:byteAddr+byteLen], r.data[6:6+byteLen])
 			}
 			endCode = EndCodeNormalCompletion
 
 		case MemoryAreaDMBit:
-			if memAddr_.address+ic > DmAreaSize { // Check address boundary
+			// Bit index = word_index * 16 + bit_offset within that word.
+			bitIdx := uint32(memAddr_.address)*16 + uint32(memAddr_.bitOffset)
+			bitLen := uint32(ic)
+			if bitIdx+bitLen > uint32(DmAreaSize) { // Check address boundary
 				endCode = EndCodeAddressRangeExceeded
 				break
 			}
-			start := memAddr_.address + uint16(memAddr_.bitOffset)
 			if r.commandCode == CommandCodeMemoryAreaRead { //Read command
-				data = s.bitdmarea[start : start+ic]
+				data = s.bitdmarea[bitIdx : bitIdx+bitLen]
 			} else { // Write command
-				copy(s.bitdmarea[start:start+ic], r.data[6:6+ic])
+				copy(s.bitdmarea[bitIdx:bitIdx+bitLen], r.data[6:6+bitLen])
 			}
 			endCode = EndCodeNormalCompletion
 

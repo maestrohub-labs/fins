@@ -115,6 +115,86 @@ func (c *UDPClient) ReadBits(ctx context.Context, ma MemoryArea, address uint16,
 	})
 }
 
+// MaxWordsPerFrame is the largest word count that fits in a single FINS
+// request frame. ReadWordsBatch / ReadBytesBatch chunk requests larger
+// than this value.
+const MaxWordsPerFrame = 999
+
+// ReadWordsBatch reads `count` contiguous words starting at `addr`, chunking
+// across multiple FINS frames when count exceeds MaxWordsPerFrame.
+//
+// Chunks are issued sequentially (one at a time) to avoid SID exhaustion
+// under concurrent callers. If the caller's context is cancelled partway
+// through, already-read chunks are discarded and ctx.Err() is returned.
+func (c *UDPClient) ReadWordsBatch(ctx context.Context, ma MemoryArea, addr uint16, count int) ([]uint16, error) {
+	if count < 0 {
+		return nil, fmt.Errorf("ReadWordsBatch: count %d must be non-negative", count)
+	}
+	if count == 0 {
+		return []uint16{}, nil
+	}
+	if int(addr)+count > 1<<16 {
+		return nil, fmt.Errorf("ReadWordsBatch: addr %d + count %d overflows the 16-bit address space", addr, count)
+	}
+
+	result := make([]uint16, 0, count)
+	offset := addr
+	remaining := count
+	for remaining > 0 {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		chunk := uint16(MaxWordsPerFrame)
+		if remaining < MaxWordsPerFrame {
+			chunk = uint16(remaining)
+		}
+		words, err := c.ReadWords(ctx, ma, offset, chunk)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, words...)
+		offset += chunk
+		remaining -= int(chunk)
+	}
+	return result, nil
+}
+
+// ReadBytesBatch is the byte-returning analogue of ReadWordsBatch.
+// count is a count of 16-bit words — matching ReadBytes semantics — so the
+// returned slice has length 2*count.
+func (c *UDPClient) ReadBytesBatch(ctx context.Context, ma MemoryArea, addr uint16, count int) ([]byte, error) {
+	if count < 0 {
+		return nil, fmt.Errorf("ReadBytesBatch: count %d must be non-negative", count)
+	}
+	if count == 0 {
+		return []byte{}, nil
+	}
+	if int(addr)+count > 1<<16 {
+		return nil, fmt.Errorf("ReadBytesBatch: addr %d + count %d overflows the 16-bit address space", addr, count)
+	}
+
+	result := make([]byte, 0, 2*count)
+	offset := addr
+	remaining := count
+	for remaining > 0 {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		chunk := uint16(MaxWordsPerFrame)
+		if remaining < MaxWordsPerFrame {
+			chunk = uint16(remaining)
+		}
+		b, err := c.ReadBytes(ctx, ma, offset, chunk)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, b...)
+		offset += chunk
+		remaining -= int(chunk)
+	}
+	return result, nil
+}
+
 // ReadClock Reads the PLC clock
 func (c *UDPClient) ReadClock(ctx context.Context) (t *time.Time, err error) {
 	return wrapRead(ctx, c, func() (*time.Time, error) {

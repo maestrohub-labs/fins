@@ -70,7 +70,10 @@ func test1(t *testing.T, c *UDPClient) {
 	err = c.WriteString(ctx, AreaDMWord, 10, "ф1234")
 	assert.Nil(t, err)
 
-	v, err := c.ReadString(ctx, AreaDMWord, 12, 1)
+	// Word 10 holds bytes [0xD1 0x84] (first 2 bytes of "ф"), word 11
+	// holds bytes [0x31 0x32] ("12"), so reading 1 word at addr=11
+	// returns "12".
+	v, err := c.ReadString(ctx, AreaDMWord, 11, 1)
 	assert.Nil(t, err)
 	assert.Equal(t, "12", v)
 

@@ -280,6 +280,129 @@ func TestConcurrentContexts(t *testing.T) {
 	assert.Equal(t, 0, leaked, "no SID slot should be leaked after reads return")
 }
 
+// clientOp describes one public method invocation. Used by the table-driven
+// tests below to assert every public method honours ctx cancellation, not
+// only ReadWords.
+type clientOp struct {
+	name string
+	do   func(ctx context.Context, c *UDPClient) error
+}
+
+var allPublicOps = []clientOp{
+	{"ReadWords", func(ctx context.Context, c *UDPClient) error {
+		_, err := c.ReadWords(ctx, MemoryAreaDMWord, 0, 1)
+		return err
+	}},
+	{"ReadBytes", func(ctx context.Context, c *UDPClient) error {
+		_, err := c.ReadBytes(ctx, MemoryAreaDMWord, 0, 1)
+		return err
+	}},
+	{"ReadBits", func(ctx context.Context, c *UDPClient) error {
+		_, err := c.ReadBits(ctx, MemoryAreaDMBit, 0, 0, 1)
+		return err
+	}},
+	{"ReadString", func(ctx context.Context, c *UDPClient) error {
+		_, err := c.ReadString(ctx, MemoryAreaDMWord, 0, 1)
+		return err
+	}},
+	{"ReadClock", func(ctx context.Context, c *UDPClient) error {
+		_, err := c.ReadClock(ctx)
+		return err
+	}},
+	{"WriteWords", func(ctx context.Context, c *UDPClient) error {
+		return c.WriteWords(ctx, MemoryAreaDMWord, 0, []uint16{1})
+	}},
+	{"WriteBytes", func(ctx context.Context, c *UDPClient) error {
+		return c.WriteBytes(ctx, MemoryAreaDMWord, 0, []byte{0, 1})
+	}},
+	{"WriteString", func(ctx context.Context, c *UDPClient) error {
+		return c.WriteString(ctx, MemoryAreaDMWord, 0, "xy")
+	}},
+	{"WriteBits", func(ctx context.Context, c *UDPClient) error {
+		return c.WriteBits(ctx, MemoryAreaDMBit, 0, 0, []bool{true})
+	}},
+	{"SetBit", func(ctx context.Context, c *UDPClient) error {
+		return c.SetBit(ctx, MemoryAreaDMBit, 0, 0)
+	}},
+	{"ResetBit", func(ctx context.Context, c *UDPClient) error {
+		return c.ResetBit(ctx, MemoryAreaDMBit, 0, 0)
+	}},
+	{"ToggleBit", func(ctx context.Context, c *UDPClient) error {
+		return c.ToggleBit(ctx, MemoryAreaDMBit, 0, 0)
+	}},
+}
+
+// TestAllMethods_PreCancelledContext asserts every public method short-circuits
+// promptly when handed a context that is already cancelled — no UDP write is
+// issued and ctx.Err() is returned.
+func TestAllMethods_PreCancelledContext(t *testing.T) {
+	c := newBlackholeClient(t)
+	defer c.Close()
+
+	for _, op := range allPublicOps {
+		t.Run(op.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			start := time.Now()
+			err := op.do(ctx, c)
+			elapsed := time.Since(start)
+
+			assert.True(t, errors.Is(err, context.Canceled), "expected context.Canceled, got %v", err)
+			assert.Less(t, elapsed, 50*time.Millisecond, "pre-cancelled ctx should short-circuit fast")
+		})
+	}
+}
+
+// TestAllMethods_MidFlightCancellation asserts every public method unblocks
+// within ~200ms of a mid-flight cancel — meaning the library-default timeout
+// (set high above) is not what's returning the call; the ctx is.
+func TestAllMethods_MidFlightCancellation(t *testing.T) {
+	c := newBlackholeClient(t)
+	defer c.Close()
+
+	for _, op := range allPublicOps {
+		t.Run(op.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			go func() {
+				time.Sleep(50 * time.Millisecond)
+				cancel()
+			}()
+
+			start := time.Now()
+			err := op.do(ctx, c)
+			elapsed := time.Since(start)
+
+			assert.True(t, errors.Is(err, context.Canceled), "expected context.Canceled, got %v", err)
+			assert.GreaterOrEqual(t, elapsed, 40*time.Millisecond, "should not return before cancel fires")
+			assert.Less(t, elapsed, 250*time.Millisecond, "should return within 200ms of cancel")
+		})
+	}
+}
+
+// TestAllMethods_ContextDeadline asserts every public method honours a
+// context deadline (distinct from explicit cancellation — returns
+// context.DeadlineExceeded instead of context.Canceled).
+func TestAllMethods_ContextDeadline(t *testing.T) {
+	c := newBlackholeClient(t)
+	defer c.Close()
+
+	for _, op := range allPublicOps {
+		t.Run(op.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+			defer cancel()
+
+			start := time.Now()
+			err := op.do(ctx, c)
+			elapsed := time.Since(start)
+
+			assert.True(t, errors.Is(err, context.DeadlineExceeded), "expected context.DeadlineExceeded, got %v", err)
+			assert.GreaterOrEqual(t, elapsed, 40*time.Millisecond)
+			assert.Less(t, elapsed, 250*time.Millisecond)
+		})
+	}
+}
+
 func TestNewUDPClient_ParentContextCancellation(t *testing.T) {
 	// Cancelling the parent ctx passed to NewUDPClient should unblock
 	// in-flight reads the same way Close() does.

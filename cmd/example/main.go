@@ -6,7 +6,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/xiaotushaoxia/fins"
+	"github.com/maestrohub-labs/fins"
 )
 
 func main() {

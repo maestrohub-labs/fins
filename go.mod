@@ -1,6 +1,6 @@
-module github.com/xiaotushaoxia/fins
+module github.com/maestrohub-labs/fins
 
-go 1.20
+go 1.25
 
 require (
 	github.com/chzyer/readline v1.5.1

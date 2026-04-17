@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/chzyer/readline"
-	"github.com/xiaotushaoxia/fins"
+	"github.com/maestrohub-labs/fins"
 )
 
 var sip *string

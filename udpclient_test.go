@@ -93,7 +93,7 @@ func test1(t *testing.T, c *UDPClient) {
 	assert.Nil(t, err)
 	assert.Equal(t, []byte{0x00, 0x00, 0xC1, 0xA0}, b)
 
-	buf := make([]byte, 8, 8)
+	buf := make([]byte, 8)
 	binary.LittleEndian.PutUint64(buf[:], math.Float64bits(-20))
 	err = c.WriteBytes(ctx, AreaDMWord, 10, buf)
 	assert.Nil(t, err)

@@ -47,7 +47,7 @@ func main() {
 	}
 	fmt.Println(z)
 	// output: [1 65535 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
-	buf := make([]byte, 8, 8)
+	buf := make([]byte, 8)
 	binary.LittleEndian.PutUint64(buf[:], math.Float64bits(15.6))
 	err = c.WriteBytes(ctx, fins.AreaDMWord, 10, buf)
 	if err != nil {

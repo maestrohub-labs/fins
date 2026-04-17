@@ -3,7 +3,6 @@ package fins
 import (
 	"context"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -24,12 +23,6 @@ func checkIsBitArea(ma MemoryArea) error {
 type atomicByte struct {
 	m sync.Mutex
 	v byte
-}
-
-func (ab *atomicByte) load() byte {
-	ab.m.Lock()
-	defer ab.m.Unlock()
-	return ab.v
 }
 
 func (ab *atomicByte) increment() byte {
@@ -62,12 +55,6 @@ func (s *syncRespSlice) getW(i byte) chan<- *response {
 	return s.rs[i]
 }
 
-func (s *syncRespSlice) getR(i byte) <-chan *response {
-	s.m.Lock()
-	defer s.m.Unlock()
-	return s.rs[i]
-}
-
 func (s *syncRespSlice) set(i byte, c chan *response) {
 	s.m.Lock()
 	defer s.m.Unlock()
@@ -77,9 +64,8 @@ func (s *syncRespSlice) set(i byte, c chan *response) {
 // singleflightOne
 // idea from github.com/golang/x/sync/singleflight and remove return value and Key/Group
 type singleflightOne struct {
-	mu    sync.Mutex
-	wg    *sync.WaitGroup
-	count atomic.Int32
+	mu sync.Mutex
+	wg *sync.WaitGroup
 }
 
 func (sr *singleflightOne) do(f func()) {

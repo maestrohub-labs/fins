@@ -10,8 +10,7 @@ import (
 )
 
 func TestClientClosedError_Unwrap(t *testing.T) {
-	var err error
-	err = ClientClosedError{}
+	var err error = ClientClosedError{}
 	assert.True(t, errors.Is(err, net.ErrClosed), "ClientClosedError should be net.ErrClosed")
 }
 

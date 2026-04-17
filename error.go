@@ -12,7 +12,7 @@ type ClientClosedError struct {
 }
 
 func (ClientClosedError) Error() string {
-	return fmt.Sprintf("error client is closed")
+	return "error client is closed"
 }
 
 func (ClientClosedError) Unwrap() error {
@@ -23,14 +23,14 @@ type ClientClosingError struct {
 }
 
 func (ClientClosingError) Error() string {
-	return fmt.Sprintf("error client is closing")
+	return "error client is closing"
 }
 
 type EmptyWriteRequestError struct {
 }
 
 func (EmptyWriteRequestError) Error() string {
-	return fmt.Sprintf("error write request is empty")
+	return "error write request is empty"
 }
 
 type ResponseLengthError struct {

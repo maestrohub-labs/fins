@@ -491,7 +491,6 @@ func (c *UDPClient) handleReadError(ctx context.Context, n int, err error, buf [
 		c.printFinsPacketError("fins client: failed to ReadFromUDP: %s", err.Error())
 	}
 	waitMoment(ctx, time.Millisecond*100)
-	return
 }
 
 func (c *UDPClient) createRequest(command []byte) (byte, []byte) {
@@ -591,7 +590,7 @@ func (c *UDPClient) readBits(ctx context.Context, ma MemoryArea, address uint16,
 		return nil, err
 	}
 
-	result := make([]bool, readCount, readCount)
+	result := make([]bool, readCount)
 	for i := 0; i < int(readCount); i++ {
 		result[i] = r.data[i]&0x01 > 0
 	}
@@ -679,7 +678,7 @@ func (c *UDPClient) wrapClose() {
 }
 
 func (c *UDPClient) uint16sToBytes(us []uint16) []byte {
-	bts := make([]byte, 2*len(us), 2*len(us))
+	bts := make([]byte, 2*len(us))
 	order, ok := c.byteOrder.Load().(binary.ByteOrder)
 	if !ok {
 		order = binary.BigEndian

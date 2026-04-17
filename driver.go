@@ -60,13 +60,13 @@ func writeCommand(memoryAddr memoryAddress, itemCount uint16, bytes []byte) []by
 }
 
 func clockReadCommand() []byte {
-	commandData := make([]byte, 2, 2)
+	commandData := make([]byte, 2)
 	binary.BigEndian.PutUint16(commandData[0:2], CommandCodeClockRead)
 	return commandData
 }
 
 func encodeMemoryAddress(memoryAddr memoryAddress) []byte {
-	bytes := make([]byte, 4, 4)
+	bytes := make([]byte, 4)
 	bytes[0] = memoryAddr.memoryArea
 	binary.BigEndian.PutUint16(bytes[1:3], memoryAddr.address)
 	bytes[3] = memoryAddr.bitOffset
@@ -131,7 +131,7 @@ func decodeHeader(bytes []byte) Header {
 func encodeHeader(h Header) []byte {
 	var icf byte
 	icf = 1 << icfBridgesBit
-	if h.responseRequired == false {
+	if !h.responseRequired {
 		icf |= 1 << icfResponseRequiredBit
 	}
 	if h.messageType == MessageTypeResponse {
@@ -143,29 +143,6 @@ func encodeHeader(h Header) []byte {
 		h.src.network, h.src.node, h.src.unit,
 		h.serviceID}
 	return bytes
-}
-
-func encodeBCD(x uint64) []byte {
-	if x == 0 {
-		return []byte{0x0f}
-	}
-	var n int
-	for xx := x; xx > 0; n++ {
-		xx = xx / 10
-	}
-	bcd := make([]byte, (n+1)/2)
-	if n%2 == 1 {
-		hi, lo := byte(x%10), byte(0x0f)
-		bcd[(n-1)/2] = hi<<4 | lo
-		x = x / 10
-		n--
-	}
-	for i := n/2 - 1; i >= 0; i-- {
-		hi, lo := byte((x/10)%10), byte(x%10)
-		bcd[i] = hi<<4 | lo
-		x = x / 100
-	}
-	return bcd
 }
 
 func timesTenPlusCatchingOverflow(x uint64, digit uint64) (uint64, error) {

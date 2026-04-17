@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -233,6 +234,11 @@ func (c *UDPClient) WriteBytes(ctx context.Context, ma MemoryArea, address uint1
 		if err := checkIsWordArea(ma); err != nil {
 			return err
 		}
+		c.logger().Debug("fins write bytes",
+			slog.String("area", ma.Name),
+			slog.Int("addr", int(address)),
+			slog.Int("bytes", len(b)),
+		)
 		command := writeCommand(memAddr(ma.Code, address), uint16(len(b)/2), b)
 		return c.checkResponse(c.sendCommand(ctx, command))
 	})
@@ -261,6 +267,12 @@ func (c *UDPClient) WriteBits(ctx context.Context, ma MemoryArea, address uint16
 		if err := checkIsBitArea(ma); err != nil {
 			return err
 		}
+		c.logger().Debug("fins write bits",
+			slog.String("area", ma.Name),
+			slog.Int("addr", int(address)),
+			slog.Int("bitOffset", int(bitOffset)),
+			slog.Int("count", len(data)),
+		)
 		l := uint16(len(data))
 		bts := make([]byte, 0, l)
 		for i := 0; i < int(l); i++ {
@@ -436,7 +448,7 @@ func (c *UDPClient) handleReadError(ctx context.Context, n int, err error, buf [
 		c.printFinsPacketError(msg+"ReadFromUDP return %d", n)
 	}
 	if err != nil {
-		c.printFinsPacketError("fins client: failed to ReadFromUDP: " + err.Error())
+		c.printFinsPacketError("fins client: failed to ReadFromUDP: %s", err.Error())
 	}
 	waitMoment(ctx, time.Millisecond*100)
 	return
@@ -522,6 +534,12 @@ func (c *UDPClient) readBits(ctx context.Context, ma MemoryArea, address uint16,
 	if err := checkIsBitArea(ma); err != nil {
 		return nil, err
 	}
+	c.logger().Debug("fins read bits",
+		slog.String("area", ma.Name),
+		slog.Int("addr", int(address)),
+		slog.Int("bitOffset", int(bitOffset)),
+		slog.Int("count", int(readCount)),
+	)
 	command := readCommand(memAddrWithBitOffset(ma.Code, address, bitOffset), readCount)
 	r, err := c.sendCommandAndCheckResponse(ctx, command)
 	if err != nil {
@@ -538,6 +556,11 @@ func (c *UDPClient) readBytes(ctx context.Context, ma MemoryArea, address uint16
 	if err := checkIsWordArea(ma); err != nil {
 		return nil, err
 	}
+	c.logger().Debug("fins read bytes",
+		slog.String("area", ma.Name),
+		slog.Int("addr", int(address)),
+		slog.Int("count", int(readCount)),
+	)
 	addr := memAddr(ma.Code, address)
 	command := readCommand(addr, readCount)
 	r, e := c.sendCommandAndCheckResponse(ctx, command)
@@ -637,8 +660,15 @@ func (c *UDPClient) checkResponse(r *response, err error) error {
 	}
 	m, _ := c.ignoreErrorCode.Load().(map[uint16]struct{})
 	if _, ok := m[r.endCode]; ok {
+		c.logger().Debug("fins: ignoring end code",
+			slog.Int("endCode", int(r.endCode)),
+		)
 		return nil
 	}
+	c.logger().Warn("fins: non-zero end code",
+		slog.Int("endCode", int(r.endCode)),
+		slog.String("msg", EndCodeToMsg(r.endCode)),
+	)
 	return EndCodeError{r.endCode}
 }
 

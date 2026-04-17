@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"math"
@@ -10,6 +11,8 @@ import (
 )
 
 func main() {
+	ctx := context.Background()
+
 	//clientAddr := fins.NewUDPAddress("192.168.250.10", 9600, 0, 34, 0)
 	//plcAddr := fins.NewUDPAddress("192.168.250.1", 9601, 0, 0, 0)
 	clientAddr := fins.NewUDPAddress("127.0.0.1", 9602, 0, 34, 0)
@@ -24,21 +27,21 @@ func main() {
 		<-s.Done()
 	}()
 
-	c, err := fins.NewUDPClient(clientAddr, plcAddr)
+	c, err := fins.NewUDPClient(ctx, clientAddr, plcAddr)
 	if err != nil {
 		panic(err)
 	}
 	defer c.Close()
 
-	z, err := c.ReadWords(fins.MemoryAreaDMWord, 1000, 50)
+	z, err := c.ReadWords(ctx, fins.MemoryAreaDMWord, 1000, 50)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println(z)
 	// output: [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
-	c.WriteWords(fins.MemoryAreaDMWord, 2000, []uint16{z[0] + 1, z[1] - 1})
+	c.WriteWords(ctx, fins.MemoryAreaDMWord, 2000, []uint16{z[0] + 1, z[1] - 1})
 
-	z, err = c.ReadWords(fins.MemoryAreaDMWord, 2000, 50)
+	z, err = c.ReadWords(ctx, fins.MemoryAreaDMWord, 2000, 50)
 	if err != nil {
 		panic(err)
 	}
@@ -46,12 +49,12 @@ func main() {
 	// output: [1 65535 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
 	buf := make([]byte, 8, 8)
 	binary.LittleEndian.PutUint64(buf[:], math.Float64bits(15.6))
-	err = c.WriteBytes(fins.MemoryAreaDMWord, 10, buf)
+	err = c.WriteBytes(ctx, fins.MemoryAreaDMWord, 10, buf)
 	if err != nil {
 		panic(err)
 	}
 
-	b, err := c.ReadBytes(fins.MemoryAreaDMWord, 10, 4)
+	b, err := c.ReadBytes(ctx, fins.MemoryAreaDMWord, 10, 4)
 	if err != nil {
 		panic(err)
 	}
@@ -59,31 +62,31 @@ func main() {
 	fmt.Println("Float result:", floatRes)
 	// output: Float result: 15.6
 
-	err = c.WriteString(fins.MemoryAreaDMWord, 10000, "teststring")
+	err = c.WriteString(ctx, fins.MemoryAreaDMWord, 10000, "teststring")
 	if err != nil {
 		panic(err)
 	}
 
-	str, _ := c.ReadString(fins.MemoryAreaDMWord, 10000, 5)
+	str, _ := c.ReadString(ctx, fins.MemoryAreaDMWord, 10000, 5)
 	fmt.Println(str, len(str))
 	// output: teststring 10
 
-	bit, _ := c.ReadBits(fins.MemoryAreaDMWord, 10473, 2, 1)
+	bit, _ := c.ReadBits(ctx, fins.MemoryAreaDMWord, 10473, 2, 1)
 	fmt.Println(bit)
 	fmt.Println(len(bit))
 
-	c.WriteWords(fins.MemoryAreaDMWord, 24000, []uint16{z[0] + 1, z[1] - 1})
-	c.WriteBits(fins.MemoryAreaDMBit, 24002, 0, []bool{false, false, false, true,
+	c.WriteWords(ctx, fins.MemoryAreaDMWord, 24000, []uint16{z[0] + 1, z[1] - 1})
+	c.WriteBits(ctx, fins.MemoryAreaDMBit, 24002, 0, []bool{false, false, false, true,
 		true, false, false, true,
 		false, false, false, false,
 		true, true, true, true})
-	c.SetBit(fins.MemoryAreaDMBit, 24003, 1)
-	c.ResetBit(fins.MemoryAreaDMBit, 24003, 0)
-	c.ToggleBit(fins.MemoryAreaDMBit, 24003, 2)
+	c.SetBit(ctx, fins.MemoryAreaDMBit, 24003, 1)
+	c.ResetBit(ctx, fins.MemoryAreaDMBit, 24003, 0)
+	c.ToggleBit(ctx, fins.MemoryAreaDMBit, 24003, 2)
 
 	for {
 		time.Sleep(time.Second * 5)
-		t, _ := c.ReadClock()
+		t, _ := c.ReadClock(ctx)
 		fmt.Printf("Setting PLC time to: %s\n", t.Format(time.RFC3339))
 	}
 }

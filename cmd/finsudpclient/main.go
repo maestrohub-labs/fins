@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -35,7 +36,7 @@ func init() {
 	clientAddr := fins.NewUDPAddress("", 0, byte(*cn), byte(*cnd), byte(*cu))
 	plcAddr := fins.NewUDPAddress(*sip, *sport, byte(*sn), byte(*snd), byte(*su))
 	var err error
-	client, err = fins.NewUDPClient(clientAddr, plcAddr)
+	client, err = fins.NewUDPClient(context.Background(), clientAddr, plcAddr)
 	if err != nil {
 		log.Fatal("failed to NewUDPClient" + err.Error())
 	}
@@ -47,6 +48,7 @@ func main() {
 }
 
 func exec(ss []string) {
+	ctx := context.Background()
 	if ss[0] == "set" || ss[0] == "reset" {
 		handleSetRest(ss)
 		return
@@ -56,7 +58,7 @@ func exec(ss []string) {
 		return
 	}
 	if ss[0] == "rc" {
-		t, err := client.ReadClock()
+		t, err := client.ReadClock(ctx)
 		if err != nil {
 			fmt.Println("read clock error: " + err.Error())
 		} else {
@@ -79,13 +81,13 @@ func exec(ss []string) {
 		var err error
 		switch dt {
 		case "b":
-			result, err = client.ReadBits(ma, addr, 0, count)
+			result, err = client.ReadBits(ctx, ma, addr, 0, count)
 		case "B":
-			result, err = client.ReadBytes(ma, addr, count)
+			result, err = client.ReadBytes(ctx, ma, addr, count)
 		case "s":
-			result, err = client.ReadString(ma, addr, count)
+			result, err = client.ReadString(ctx, ma, addr, count)
 		case "w":
-			result, err = client.ReadWords(ma, addr, count)
+			result, err = client.ReadWords(ctx, ma, addr, count)
 		}
 		if err != nil {
 			fmt.Println("read error: " + err.Error())
@@ -98,13 +100,13 @@ func exec(ss []string) {
 	var err error
 	switch dt {
 	case "b":
-		err = client.WriteBits(ma, addr, 0, values.([]bool))
+		err = client.WriteBits(ctx, ma, addr, 0, values.([]bool))
 	case "B":
-		err = client.WriteBytes(ma, addr, values.([]byte))
+		err = client.WriteBytes(ctx, ma, addr, values.([]byte))
 	case "s":
-		err = client.WriteString(ma, addr, values.(string))
+		err = client.WriteString(ctx, ma, addr, values.(string))
 	case "w":
-		err = client.WriteWords(ma, addr, values.([]uint16))
+		err = client.WriteWords(ctx, ma, addr, values.([]uint16))
 	}
 	if err != nil {
 		fmt.Println("write error: " + err.Error())
@@ -138,10 +140,11 @@ func handleSetRest(ss []string) {
 		fmt.Println("invalid offset: " + ss[3])
 		return
 	}
+	ctx := context.Background()
 	if ss[0] == "set" {
-		err = client.SetBit(area, uint16(addrI), byte(offsetI))
+		err = client.SetBit(ctx, area, uint16(addrI), byte(offsetI))
 	} else {
-		err = client.ResetBit(area, uint16(addrI), byte(offsetI))
+		err = client.ResetBit(ctx, area, uint16(addrI), byte(offsetI))
 	}
 	if err != nil {
 		fmt.Println(ss[0] + " error: " + err.Error())

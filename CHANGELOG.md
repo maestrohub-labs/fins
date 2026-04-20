@@ -7,6 +7,18 @@ and this project adheres to [SemVer](https://semver.org/spec/v2.0.0.html)
 with a `-mh.N` pre-release suffix to disambiguate from any future upstream
 tags.
 
+## [v0.1.0-mh.4] — 2026-04-20
+
+### Fixed
+
+- `ToggleBit` now actually flips the bit. The previous implementation
+  read the bit and then wrote the same value back (`0x01` → Set when
+  already set, `0x00` → Reset when already clear), so the call was a
+  no-op on all of `v0.1.0-mh.1`..`v0.1.0-mh.3`. The read-modify-write
+  path is retained (not all Omron models support a native toggle
+  action code on the memory-area-write command), but the branch is
+  now correctly inverted. No API change.
+
 ## [v0.1.0-mh.3] — 2026-04-20
 
 ### Fixed

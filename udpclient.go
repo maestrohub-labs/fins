@@ -333,16 +333,20 @@ func (c *UDPClient) ResetBit(ctx context.Context, ma MemoryArea, address uint16,
 	return c.bitTwiddle(ctx, ma, address, bitOffset, 0x00)
 }
 
-// ToggleBit Toggles a bit in the PLC data area
+// ToggleBit Toggles a bit in the PLC data area.
+//
+// Implemented as a client-side read-modify-write: reads the current value
+// then writes the inverse. Not atomic w.r.t. concurrent writers — if the
+// same bit might be written by another party, coordinate externally.
 func (c *UDPClient) ToggleBit(ctx context.Context, ma MemoryArea, address uint16, bitOffset byte) error {
 	return c.wrapOperate(ctx, func() error {
 		b, err := c.readBits(ctx, ma, address, bitOffset, 1)
 		if err != nil {
 			return err
 		}
-		var t byte
+		t := byte(0x01)
 		if b[0] {
-			t = 0x01
+			t = 0x00
 		}
 		return c._bitTwiddle(ctx, ma, address, bitOffset, t)
 	})

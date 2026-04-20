@@ -24,7 +24,7 @@ type UDPClient struct {
 	plcAddr   UDPAddress
 	// config
 	responseTimeout  atomic.Int64
-	byteOrder        atomic.Value // type: binary.ByteOrder
+	byteOrder        atomic.Pointer[binary.ByteOrder]
 	readGoroutineNum atomic.Int32
 
 	commLogger
@@ -351,9 +351,13 @@ func (c *UDPClient) ToggleBit(ctx context.Context, ma MemoryArea, address uint16
 // SetByteOrder
 // Set byte order
 // Default value: binary.BigEndian
+//
+// Safe to call repeatedly with any binary.ByteOrder implementation
+// (BigEndian, LittleEndian, or a custom one). Concurrent callers
+// observe updates atomically.
 func (c *UDPClient) SetByteOrder(o binary.ByteOrder) {
 	if o != nil {
-		c.byteOrder.Store(o)
+		c.byteOrder.Store(&o)
 	}
 }
 
@@ -684,12 +688,16 @@ func (c *UDPClient) wrapClose() {
 	c.setConnAndCtx(nil)
 }
 
+func (c *UDPClient) loadByteOrder() binary.ByteOrder {
+	if p := c.byteOrder.Load(); p != nil {
+		return *p
+	}
+	return binary.BigEndian
+}
+
 func (c *UDPClient) uint16sToBytes(us []uint16) []byte {
 	bts := make([]byte, 2*len(us))
-	order, ok := c.byteOrder.Load().(binary.ByteOrder)
-	if !ok {
-		order = binary.BigEndian
-	}
+	order := c.loadByteOrder()
 	for i := 0; i < len(us); i++ {
 		order.PutUint16(bts[i*2:i*2+2], us[i])
 	}
@@ -697,11 +705,7 @@ func (c *UDPClient) uint16sToBytes(us []uint16) []byte {
 }
 
 func (c *UDPClient) bytesToUint16s(bs []byte) []uint16 {
-	order, ok := c.byteOrder.Load().(binary.ByteOrder)
-	if !ok {
-		order = binary.BigEndian
-	}
-
+	order := c.loadByteOrder()
 	data := make([]uint16, len(bs)/2)
 	for i := 0; i < len(bs)/2; i++ {
 		data[i] = order.Uint16(bs[i*2 : i*2+2])

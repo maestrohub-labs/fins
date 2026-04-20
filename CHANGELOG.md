@@ -7,6 +7,20 @@ and this project adheres to [SemVer](https://semver.org/spec/v2.0.0.html)
 with a `-mh.N` pre-release suffix to disambiguate from any future upstream
 tags.
 
+## [v0.1.0-mh.3] — 2026-04-20
+
+### Fixed
+
+- `SetByteOrder(binary.LittleEndian)` no longer panics when called after
+  `NewUDPClient`. The client's internal byte-order field was an
+  `atomic.Value`, which locks in the first concrete type it sees;
+  `NewUDPClient` primed it with `binary.BigEndian` (concrete type
+  `binary.bigEndian`), so any later store of `binary.LittleEndian`
+  (concrete type `binary.littleEndian`) panicked with
+  `sync/atomic: store of inconsistently typed value into Value`.
+  The field is now `atomic.Pointer[binary.ByteOrder]`, which is
+  type-safe for interface values. No API changes.
+
 ## [v0.1.0-mh.2] — 2026-04-17
 
 ### Fixed
